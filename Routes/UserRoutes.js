@@ -6,4 +6,4 @@ router.route('/registerUser').post(registerUser);
 router.route('/loginUser').post(loginUser);
 router.route('/verify-otp').post(verifyOtp);
 
-module.exports = router;
+module.exports = router; 

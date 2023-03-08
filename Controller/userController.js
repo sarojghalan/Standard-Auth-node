@@ -44,7 +44,7 @@ const registerUser = async (req, res,next) => {
         text: `Your OTP code is ${otp}.`,
       };
       req.session.otp = otp; // Store the OTP in the session
-      // const user = await userModel.create({ ...req.body });
+      const user = await userModel.create({ ...req.body });
        transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
           console.log(error);
@@ -82,10 +82,11 @@ const verifyOtp = async (req,res) => {
 }
 
 const loginUser = async (req, res) => {
+  const {userName , password} = req.body
   try {
     console.log(req.body.userName);
-    const user = await userModel.findOne({ userName: req.body.userName });
-    if (req.body.password === user.password) {
+    const user = await userModel.findOne({ userName: userName });
+    if (password === user.password) {
       res.status(200).send("Login Bhaes  !");
     } else {
       res.status(200).send("Tah Ko Ho  !");
