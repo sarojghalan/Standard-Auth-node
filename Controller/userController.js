@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const userModel = require("../Model/userModel");
 const nodemailer = require("nodemailer");
+const jwt = require("jsonwebtoken")
 // const session = require('express-session')
 
 const transporter = nodemailer.createTransport({
@@ -105,8 +106,10 @@ const loginUser = async (req, res) => {
     res.status(412).send({message:"Credentials Didn't Match.",
     status:res.statusCode , ...req.body});
    } else{
+    const token = jwt.sign({ email }, 'secret-key',{expiresIn:'30d'});
+    console.log(token);
     res.status(200).send({message:"You have been successfully Logged In.",
-    status:res.statusCode , ...req.body});
+    status:res.statusCode , ...req.body,token});
    }
 
   } catch (err) {
