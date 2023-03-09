@@ -1,10 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const userRoutes = require("./Routes/UserRoutes");
+const productRoutes = require("./Routes/ProductRoutes");
 const connectDb = require("./Database/connectDb");
 const bodyParser = require("body-parser");
 const app = express();
 const session = require("express-session");
+const errorHandler = require("./Middleware/errorHandler");
 
 app.use(
   session({
@@ -20,6 +22,9 @@ app.use(
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/product", productRoutes);
+app.use(errorHandler)
+
 
 const startServer = async () => {
   try {

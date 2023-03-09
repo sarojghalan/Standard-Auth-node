@@ -1,3 +1,4 @@
+const asyncHandler = require('express-async-handler')
 const userModel = require("../Model/userModel");
 const nodemailer = require("nodemailer");
 const session = require('express-session')
@@ -23,9 +24,8 @@ const registerUser = async (req, res,next) => {
   // console.log(userModel.findOne({ email: email }) ? "haha" : "no haha");
   try {
     if (!userName || !email || !phone || !password || !confirm_password) {
-      res.status(412).json({
-        message: "Empty Field Detected",
-      });
+      res.status(400);
+      throw new Error("All Fields are mandatory!")
     } else if (password !== confirm_password) {
       res.status(412).json({
         message: "Given Password did not match",
