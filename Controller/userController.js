@@ -63,7 +63,7 @@ const registerUser = async (req, res, next) => {
           console.log("Email sent: " + info.response);
           res.status(200).json({
             message: "OTP has been sent to your email.",
-            ...req.session.otp,
+            ...req.app.locals,
           });
         }
       });
@@ -133,4 +133,47 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, verifyOtp };
+const forgotPassword = async (req,res) => {
+  const {email} = req.body;
+  const user = await userModel.findOne({email:email});
+  const otp = Math.floor(100000 + Math.random() * 900000);
+  if(!email){
+    res.status(412).json({
+      message:'Please enter your email !.',
+      status:res.statusCode
+    })
+  }else if(user === null){
+    res.status(401).json({
+      message:'Your provided email has not been registered yet.',
+      status:res.statusCode
+    })
+  }else{
+    const mailOptions = {
+      from: "codewithsaroj@gmail.com",
+      to: `${email}`,
+      subject: "TOken for Reset verify forgot password",
+      text: `Your OTP code is ${otp}.`,
+    };
+    //storing otp in overall application using app.locals
+    req.app.locals = {
+      otp: otp,
+      registerData: {
+        ...req.body,
+      },
+    };
+
+    transporter.sendMail(mailOptions, function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info.response);
+        res.status(200).json({
+          message: "TOken has been sent to your email.",
+          ...req.session.otp,
+        });
+      }
+    });
+  }
+} 
+
+module.exports = { registerUser, loginUser, verifyOtp,forgotPassword };
