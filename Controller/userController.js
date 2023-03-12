@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const userModel = require("../Model/userModel");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 // const session = require('express-session')
 
 const transporter = nodemailer.createTransport({
@@ -48,19 +49,23 @@ const registerUser = async (req, res, next) => {
         subject: "OTP Code for Registration",
         text: `Your OTP code is ${otp}.`,
       };
-      req.app.locals = {
-        otp: otp,
-        registerData: {
-          ...req.body,
-        },
-      };
       // Store the OTP in the session
       // const user = await userModel.create({ ...req.body });
+      const salt = await bcrypt.genSalt(10);
+      const hashPassword = await bcrypt.hash(password, salt);
       transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
           console.log(error);
         } else {
           console.log("Email sent: " + info.response);
+          const user = userModel.create({
+            userName:userName,
+            email:email,
+            phone:phone,
+            password:hashPassword,
+            isVerified: false,
+            otpCode: otp,
+          });
           res.status(200).json({
             message: "OTP has been sent to your email.",
             ...req.app.locals,
@@ -76,15 +81,26 @@ const registerUser = async (req, res, next) => {
 const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
   // console.log("user otp is : ", otp)
+  const user = await userModel.findOne({ email: email });
+  console.log( user.otpCode);
+  console.log( otp);
   try {
-    if (req.app.locals.otp == otp) {
-      const user = await userModel.create({ ...req.app.locals.registerData });
-      res.status(200).json({
-        message: "Your OTP has been verified successfully. Now you can login",
+    if (!email || !otp) {
+      res.status(412).json({
+        message: "empty field detected",
+        status: res.statusCode,
+      });
+    } else if (user.otpCode !== otp) {
+      res.status(412).json({
+        message: "Enter OTP code didn't match",
+        status: res.statusCode,
       });
     } else {
-      res.status(412).json({
-        message: "Given OTP didn't match",
+      await userModel
+        .findOneAndUpdate({ email: email }, { isVerified: true })
+      res.status(200).json({
+        message: "you have been verified successfully",
+        status: res.statusCode,
       });
     }
   } catch (err) {
@@ -111,7 +127,8 @@ const loginUser = async (req, res) => {
       });
     }
     if (user !== null) {
-      if (user?.password !== password) {
+      const isMatch = bcrypt.compare(password, user.password);
+      if (!isMatch) {
         res.status(412).send({
           message: "Incorrect Password.",
           status: res.statusCode,
@@ -119,35 +136,42 @@ const loginUser = async (req, res) => {
         });
       }
     }
-    console.log(" i am being called or not .");
-    const token = jwt.sign({ email }, "secret-key", { expiresIn: "30d" });
-    console.log(token);
-    res.status(200).send({
-      message: "You have been successfully Logged In.",
-      status: res.statusCode,
-      ...req.body,
-      token,
-    });
+    if (user?.isVerified) {
+      const token = jwt.sign({ email }, "secret-key", { expiresIn: "30d" });
+      console.log(token);
+      res.status(200).send({
+        message: "You have been successfully Logged In.",
+        status: res.statusCode,
+        ...req.body,
+        token,
+      });
+    }
+    if(!user?.isVerified) {
+      res.status(401).send({
+        message: "You are not verified yet. Please Sign Up",
+        status: res.statusCode,
+      });
+    }
   } catch (err) {
     console.log(err);
   }
 };
 
-const forgotPassword = async (req,res) => {
-  const {email} = req.body;
-  const user = await userModel.findOne({email:email});
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const user = await userModel.findOne({ email: email });
   const otp = Math.floor(100000 + Math.random() * 900000);
-  if(!email){
+  if (!email) {
     res.status(412).json({
-      message:'Please enter your email !.',
-      status:res.statusCode
-    })
-  }else if(user === null){
+      message: "Please enter your email !.",
+      status: res.statusCode,
+    });
+  } else if (user === null) {
     res.status(401).json({
-      message:'Your provided email has not been registered yet.',
-      status:res.statusCode
-    })
-  }else{
+      message: "Your provided email has not been registered yet.",
+      status: res.statusCode,
+    });
+  } else {
     const mailOptions = {
       from: "codewithsaroj@gmail.com",
       to: `${email}`,
@@ -174,6 +198,47 @@ const forgotPassword = async (req,res) => {
       }
     });
   }
-} 
+};
 
-module.exports = { registerUser, loginUser, verifyOtp,forgotPassword };
+const resetPassword = async (req, res) => {
+  const { email, otp, password, confirm_password } = req.body;
+  console.log("server otp is : ", typeof req.app.locals.otp)
+  console.log("user otp is : ", typeof otp)
+  const query = { email: email };
+  try {
+    if (!otp) {
+      res.status(412).json({
+        message: "OTP field is empty !",
+      });
+    }
+    if (password !== confirm_password) {
+      res.status(412).json({
+        message: "Password and confirm password didn't match please check !",
+      });
+    }
+    if (req.app.locals.otp != otp) {
+      res.status(412).json({
+        message: "Given OTP didn't match",
+      });
+    } else {
+      const user = await userModel.findOneAndUpdate(
+        query,
+        { password: password}
+      );
+      res.status(200).json({
+        message:
+          "Your OTP has been verified successfully. Now you reset password",
+      });
+    }
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  verifyOtp,
+  forgotPassword,
+  resetPassword,
+};
