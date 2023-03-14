@@ -3,6 +3,7 @@ const userModel = require("../Model/userModel");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+
 // const session = require('express-session')
 
 const transporter = nodemailer.createTransport({
@@ -20,7 +21,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const registerUser = async (req, res, next) => {
+const registerUser = async (req, res) => {
   const { userName, email, phone, password, confirm_password } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
   const user = await userModel.findOne({ email: email });
@@ -49,26 +50,25 @@ const registerUser = async (req, res, next) => {
         subject: "OTP Code for Registration",
         text: `Your OTP code is ${otp}.`,
       };
-      // Store the OTP in the session
-      // const user = await userModel.create({ ...req.body });
+      // Generating hash password
       const salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(password, salt);
       transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
           console.log(error);
         } else {
-          console.log("Email sent: " + info.response);
-          const user = userModel.create({
-            userName:userName,
-            email:email,
-            phone:phone,
-            password:hashPassword,
-            isVerified: false,
-            otpCode: otp,
-          });
+          req.session.userData = {
+            registerData: {
+              userName: userName,
+              email: email,
+              phone: phone,
+              password: hashPassword,
+            },
+            otp: otp,
+          };
           res.status(200).json({
             message: "OTP has been sent to your email.",
-            ...req.app.locals,
+            status: res.statusCode,
           });
         }
       });
@@ -80,31 +80,28 @@ const registerUser = async (req, res, next) => {
 
 const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
-  // console.log("user otp is : ", otp)
-  const user = await userModel.findOne({ email: email });
-  console.log( user.otpCode);
-  console.log( otp);
+  console.log("register data : ", req.session.userData.registerData);
   try {
     if (!email || !otp) {
       res.status(412).json({
         message: "empty field detected",
         status: res.statusCode,
       });
-    } else if (user.otpCode !== otp) {
+    } else if (req.session.userData.otp != otp) {
       res.status(412).json({
         message: "Enter OTP code didn't match",
         status: res.statusCode,
       });
-    } else {
-      await userModel
-        .findOneAndUpdate({ email: email }, { isVerified: true })
+    }
+    if (req.session.userData.otp == otp) {
+      userModel.create(req.session.userData.registerData);
       res.status(200).json({
         message: "you have been verified successfully",
         status: res.statusCode,
       });
     }
   } catch (err) {
-    console.log(err);
+    console.log("printing err : ", err);
   }
 };
 
@@ -135,22 +132,16 @@ const loginUser = async (req, res) => {
           ...req.body,
         });
       }
-    }
-    if (user?.isVerified) {
-      const token = jwt.sign({ email }, "secret-key", { expiresIn: "30d" });
-      console.log(token);
-      res.status(200).send({
-        message: "You have been successfully Logged In.",
-        status: res.statusCode,
-        ...req.body,
-        token,
-      });
-    }
-    if(!user?.isVerified) {
-      res.status(401).send({
-        message: "You are not verified yet. Please Sign Up",
-        status: res.statusCode,
-      });
+      if (isMatch) {
+        const token = jwt.sign({ email }, "secret-key", { expiresIn: "30d" });
+        console.log(token);
+        res.status(200).send({
+          message: "You have been successfully Logged In.",
+          status: res.statusCode,
+          ...req.body,
+          token,
+        });
+      }
     }
   } catch (err) {
     console.log(err);
@@ -179,12 +170,7 @@ const forgotPassword = async (req, res) => {
       text: `Your OTP code is ${otp}.`,
     };
     //storing otp in overall application using app.locals
-    req.app.locals = {
-      otp: otp,
-      registerData: {
-        ...req.body,
-      },
-    };
+    req.app.locals.opt =otp ;
 
     transporter.sendMail(mailOptions, function (error, info) {
       if (error) {
@@ -202,8 +188,6 @@ const forgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   const { email, otp, password, confirm_password } = req.body;
-  console.log("server otp is : ", typeof req.app.locals.otp)
-  console.log("user otp is : ", typeof otp)
   const query = { email: email };
   try {
     if (!otp) {
@@ -221,10 +205,9 @@ const resetPassword = async (req, res) => {
         message: "Given OTP didn't match",
       });
     } else {
-      const user = await userModel.findOneAndUpdate(
-        query,
-        { password: password}
-      );
+      const user = await userModel.findOneAndUpdate(query, {
+        password: password,
+      });
       res.status(200).json({
         message:
           "Your OTP has been verified successfully. Now you reset password",

@@ -18,14 +18,6 @@ const UserSchema = new Schema({
     type: "string",
     required:[true,"password filed is required"]
   },
-  otpCode:{
-    type:'string',
-    required:[false]
-  },
-  isVerified:{
-    type:'boolean',
-    default:false
-  }
 });
 
 module.exports = mongoose.model("User", UserSchema);
