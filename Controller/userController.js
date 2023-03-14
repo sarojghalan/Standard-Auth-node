@@ -124,7 +124,8 @@ const loginUser = async (req, res) => {
       });
     }
     if (user !== null) {
-      const isMatch = bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, user.password);
+      console.log("is Match : ",isMatch);
       if (!isMatch) {
         res.status(412).send({
           message: "Incorrect Password.",
@@ -170,7 +171,7 @@ const forgotPassword = async (req, res) => {
       text: `Your OTP code is ${otp}.`,
     };
     //storing otp in overall application using app.locals
-    req.app.locals.opt =otp ;
+    req.session.resetOTP =otp ;
 
     transporter.sendMail(mailOptions, function (error, info) {
       if (error) {
@@ -189,6 +190,9 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
   const { email, otp, password, confirm_password } = req.body;
   const query = { email: email };
+  const salt = await bcrypt.genSalt(10);
+  const hashPassword = await bcrypt.hash(password, salt);
+  console.log("app locals : ",req.session.resetOTP)
   try {
     if (!otp) {
       res.status(412).json({
@@ -200,13 +204,13 @@ const resetPassword = async (req, res) => {
         message: "Password and confirm password didn't match please check !",
       });
     }
-    if (req.app.locals.otp != otp) {
+    if (req.session.resetOTP != otp) {
       res.status(412).json({
         message: "Given OTP didn't match",
       });
     } else {
       const user = await userModel.findOneAndUpdate(query, {
-        password: password,
+        password: hashPassword,
       });
       res.status(200).json({
         message:
