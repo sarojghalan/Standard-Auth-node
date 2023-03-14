@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
 const ProductSchema = new Schema({
+  _id:{
+    type:'number',
+    required:[true,"ID field is required"]
+  },
   productName: {
     type: "string",
     required:[true,"productName filed is required"]
