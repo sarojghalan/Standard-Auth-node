@@ -39,14 +39,16 @@ const createProduct = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Product created successfully" });
 });
 const updateProduct = async (req, res) => {
-  const updateProduct = await productSchema.findByIdAndUpdate(req.params.id, { ...req.body });
+  const updateProduct = await productSchema.findByIdAndUpdate(req.params.id, {
+    ...req.body,
+  });
   if (!updateProduct) {
     return res.status(404).json({
       message: "Product of that id has not found.",
     });
   }
-  const productInfo = await productSchema.findOne({_id:req.params.id});
-  console.log("product info : ",productInfo)
+  const productInfo = await productSchema.findOne({ _id: req.params.id });
+  console.log("product info : ", productInfo);
   res.status(200).json({
     message: "Product has been updated successfully",
     status: res.statusCode,
@@ -56,23 +58,20 @@ const updateProduct = async (req, res) => {
   });
 };
 const deleteProduct = async (req, res) => {
-  
-  const findProduct = await productSchema.findOne({_id:req.params.id});
-  if(!findProduct){
+  const findProduct = await productSchema.findOne({ _id: req.params.id });
+  if (!findProduct) {
     return res.status(404).json({
-      message:"Provided id was not found.",
-      status:res.statusCode
-    })
-  }
-  else{
-    const deleteProduct = await productSchema.deleteOne({_id:req.params.id});
+      message: "Provided id was not found.",
+      status: res.statusCode,
+    });
+  } else {
+    const deleteProduct = await productSchema.deleteOne({ _id: req.params.id });
     return res.status(200).json({
-      message:"Product has been deleted successfully",
-      status:res.statusCode,
-      data:deleteProduct
-    })
+      message: "Product has been deleted successfully",
+      status: res.statusCode,
+      data: deleteProduct,
+    });
   }
-  res.send("delete products");
 };
 module.exports = {
   getProduct,
